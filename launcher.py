@@ -1,8 +1,11 @@
 from ZapfenDataset import ZapfenDataset
+from models.ffnn import FFNN
+from train import train
 
 
 def launch():
-    data = ZapfenDataset('./zapfen.csv')
+    train(FFNN())
+    # data = ZapfenDataset('./zapfen.csv')
 
 
 if __name__ == '__main__':
