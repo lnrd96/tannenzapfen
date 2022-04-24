@@ -49,16 +49,34 @@ class ZapfenDataset(Dataset):
                 labels.append(self._map_label(row['Bart']))
 
             # convert to pytorch datatype
-            self.data = torch.FloatTensor(features)
+            self.features = torch.FloatTensor(features)
             self.labels = torch.FloatTensor(labels)
             print(f'{num_invalid_rows} samples contained invalid values.')
-            print(f'{len(self.data)} samples loaded succesfully.')
+            print(f'{len(self.features)} samples loaded succesfully.')
+
+    def normalize(self):
+        pass
+
+    def get_train_and_test_set(self, split_percentage):
+        split_idx = round(len(self) * split_percentage)
+        trainset = self.features[0:split_idx], self.labels[0:split_idx]
+        testset = self.features[split_idx:len(self)], self.labels[split_idx:len(self)]
+        return ZapfenDataSubSet(trainset), ZapfenDataSubSet(testset)
 
     def __len__(self):
-        pass
+        assert(len(self.features) == len(self.labels))
+        return len(self.features)
 
     def __getitem__(self, idx):
-        pass
+        """Returns training samples
+
+        Args:
+            idx (int): idx of sample
+
+        Returns:
+            Tuple: features, labels
+        """
+        return self.features[idx], self.labels[idx]
 
     def _map_oeffnung(self, oeffnung):
         if oeffnung == 'o':
@@ -83,3 +101,16 @@ class ZapfenDataset(Dataset):
             return [0.0, 0.0, 0.0, 1.0]
         else:
             raise ValueError('Label: Inbalid value ' + label_str)
+
+
+class ZapfenDataSubSet(ZapfenDataset):
+    def __init__(self, data):
+        self.features = data[0]
+        self.labels = data[1]
+
+    def __len__(self):
+        assert(len(self.features) == len(self.labels))
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
