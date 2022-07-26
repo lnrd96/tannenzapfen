@@ -1,6 +1,8 @@
 import torch
+import matplotlib.pyplot as plt
 import csv
 from torch.utils.data import Dataset
+# from sci_analysis import analyze
 
 
 class ZapfenDataset(Dataset):
@@ -11,6 +13,7 @@ class ZapfenDataset(Dataset):
         Args:
             csv_file (str): Location of csv file.
         """
+        self.label_distribution = {'P.m.ssp.m.': 0, 'P.s.': 0, 'P.s.xu.': 0, 'P.m.ssp.u.': 0}
         # open csv file
         with open(csv_file, mode='r') as csv_file:
             dict_reader = csv.DictReader(csv_file, delimiter=';')
@@ -92,15 +95,25 @@ class ZapfenDataset(Dataset):
 
     def _map_label(self, label_str):
         if label_str == 'P.m.ssp.m.':
+            self.label_distribution['P.m.ssp.m.'] += 1
             return [1.0, 0.0, 0.0, 0.0]
         elif label_str == 'P.s.':
+            self.label_distribution['P.s.'] += 1
             return [0.0, 1.0, 0.0, 0.0]
         elif label_str == 'P.s.xu.' or label_str == 'P.s.xu':
+            self.label_distribution['P.s.xu.'] += 1
             return [0.0, 0.0, 1.0, 0.0]
         elif label_str == 'P.m.ssp.u.':
+            self.label_distribution['P.m.ssp.u.'] += 1
             return [0.0, 0.0, 0.0, 1.0]
         else:
             raise ValueError('Label: Inbalid value ' + label_str)
+
+    def plot_label_distribution(self):
+        fig, ax = plt.subplots()
+        ax.bar(self.label_distribution.keys(), self.label_distribution.values())
+        plt.savefig('label_distribution.png')
+
 
 
 class ZapfenDataSubSet(ZapfenDataset):
