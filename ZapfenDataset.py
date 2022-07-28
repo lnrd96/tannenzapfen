@@ -3,6 +3,7 @@ import os
 import csv
 import logging
 import matplotlib.pyplot as plt
+import numpy as np
 from torch.utils.data import Dataset
 from datetime import datetime
 from sci_analysis import analyze
@@ -22,42 +23,49 @@ class ZapfenDataset(Dataset):
         with open(csv_file, mode='r') as csv_file:
             dict_reader = csv.DictReader(csv_file, delimiter=';')
 
-            features = []
-            labels = []
+            features, labels = [], []
+            features_invalid, labels_invalid = [], []
             num_invalid_rows = 0
 
             # iterate over rows
             for row in dict_reader:
-                try:
 
-                    # filter for NA values
-                    for key in dict_reader.fieldnames:
-                        if key == 'Stiel_L':  # NOTE: Stiel_L excluded, b.c. too often "NA".
-                            continue
+                # check if row has invalid values
+                row_is_valid = True
+                if 'NA' in row.values():
+                    row_is_valid = False
+                    # put magic value
+                    for key in row.keys():
                         if row[key] == 'NA':
-                            num_invalid_rows += 1
-                            raise ValueError(f'"NA" value for {key}. Discarding sample!')
+                            row[key] = -1.0
 
-                    # get useful feature values
-                    extracted_row = \
-                        [self._map_oeffnung(row['Z_Oeffnung']), row['Z_laeng'], row['Z_breit'],
-                         row['DM_Spitz'], row['DM_max'], row['DM_mit'], row['Woel_aufg'],
-                         row['Woel_flach'], row['Verh_LB'], row['Asym'], row['Apo_L'],
-                         row['Apo_B'], row['Apo_S'], row['Entf'], row['Verh_LABA'], row['Verh_LASA'],
-                         row['Hakigkeit']]
+                # get useful feature values
+                extracted_row = \
+                    [self._map_oeffnung(row['Z_Oeffnung']), row['Z_laeng'], row['Z_breit'],
+                        row['DM_Spitz'], row['DM_max'], row['DM_mit'], row['Woel_aufg'],
+                        row['Woel_flach'], row['Verh_LB'], row['Asym'], row['Apo_L'],
+                        row['Apo_B'], row['Apo_S'], row['Entf'], row['Verh_LABA'], row['Verh_LASA'],
+                        row['Hakigkeit'], row['Stiel_L']]
+                # string to float
+                extracted_row = [float(e.replace(',', '.')) if type(e) is str else e for e in extracted_row ]
 
-                except ValueError as e:
-                    logging.error(e)
+                # filter for NA values
+                if row_is_valid:
+                    features.append(extracted_row)
+                    labels.append(self._map_label(row['Bart']))
+                else:
                     num_invalid_rows += 1
-                    continue
-
-                extracted_row = [float(e.replace(',', '.')) for e in extracted_row if type(e) is str]
-                features.append(extracted_row)
-                labels.append(self._map_label(row['Bart']))
+                    features_invalid.append(extracted_row)
+                    labels_invalid.append(self._map_label(row['Bart']))
 
             # convert to pytorch datatype
+            s = np.array(features).shape
+            s_2 = np.array(features_invalid).shape
             self.features = torch.FloatTensor(features)
             self.labels = torch.FloatTensor(labels)
+            self.features_invalid = torch.FloatTensor(features_invalid)
+            self.labels_invalid = torch.FloatTensor(labels_invalid)
+            assert(len(self.features_invalid) == num_invalid_rows)
             logging.info(f'{num_invalid_rows} samples contained invalid values.')
             logging.info(f'{len(self.features)} samples loaded succesfully.')
 
@@ -94,8 +102,10 @@ class ZapfenDataset(Dataset):
             return 0.75
         elif oeffnung == 'c':
             return 1.0
+        elif oeffnung == -1.0:  # handle magic value
+            return '-1.0'
         else:
-            raise ValueError('Oeffnung: Invalud value: ' + str(oeffnung))
+            raise ValueError('Oeffnung: Invalid value: ' + str(oeffnung))
 
     def _map_label(self, label_str):
         if label_str == 'P.m.ssp.m.':
@@ -111,7 +121,7 @@ class ZapfenDataset(Dataset):
             self.label_distribution['P.m.ssp.u.'] += 1
             return [0.0, 0.0, 0.0, 1.0]
         else:
-            raise ValueError('Label: Inbalid value ' + label_str)
+            raise ValueError('Label: Invalid value ' + label_str)
 
     def _setup_logging(self):
         f_id = datetime.now().strftime("%m.%d.%Y_%H:%M:%S_")
