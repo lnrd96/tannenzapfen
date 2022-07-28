@@ -1,4 +1,5 @@
 import torch
+import os
 from config import DATALOADER_CONFIG, NUM_EPOCHS, TRAIN_CONFIG
 from torch.utils.data import DataLoader
 from ZapfenDataset import ZapfenDataset
@@ -12,7 +13,7 @@ def train(model):
     trainset, testset = dataset.get_train_and_test_set(0.8)
     trainloader = DataLoader(trainset, **DATALOADER_CONFIG)
     testloader = DataLoader(testset, **DATALOADER_CONFIG)
-    writer = SummaryWriter(log_dir=f'logfiles/{datetime.now()}')
+    writer = SummaryWriter(log_dir=os.path.join('logging', 'tensorboard', datetime.now()))
 
     loss_fn = TRAIN_CONFIG['loss_fn']
     batch_size = DATALOADER_CONFIG['batch_size']

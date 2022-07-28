@@ -1,8 +1,11 @@
 import torch
-import matplotlib.pyplot as plt
+import os
 import csv
+import logging
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
-# from sci_analysis import analyze
+from datetime import datetime
+from sci_analysis import analyze
 
 
 class ZapfenDataset(Dataset):
@@ -13,6 +16,7 @@ class ZapfenDataset(Dataset):
         Args:
             csv_file (str): Location of csv file.
         """
+        self._setup_logging()
         self.label_distribution = {'P.m.ssp.m.': 0, 'P.s.': 0, 'P.s.xu.': 0, 'P.m.ssp.u.': 0}
         # open csv file
         with open(csv_file, mode='r') as csv_file:
@@ -28,7 +32,7 @@ class ZapfenDataset(Dataset):
 
                     # filter for NA values
                     for key in dict_reader.fieldnames:
-                        if key == 'Stiel_L':
+                        if key == 'Stiel_L':  # NOTE: Stiel_L excluded, b.c. too often "NA".
                             continue
                         if row[key] == 'NA':
                             num_invalid_rows += 1
@@ -40,10 +44,10 @@ class ZapfenDataset(Dataset):
                          row['DM_Spitz'], row['DM_max'], row['DM_mit'], row['Woel_aufg'],
                          row['Woel_flach'], row['Verh_LB'], row['Asym'], row['Apo_L'],
                          row['Apo_B'], row['Apo_S'], row['Entf'], row['Verh_LABA'], row['Verh_LASA'],
-                         row['Hakigkeit']]  # Stiel_L excluded, b.c. too often "NA".
+                         row['Hakigkeit']]
 
                 except ValueError as e:
-                    print(e)
+                    logging.error(e)
                     num_invalid_rows += 1
                     continue
 
@@ -54,8 +58,8 @@ class ZapfenDataset(Dataset):
             # convert to pytorch datatype
             self.features = torch.FloatTensor(features)
             self.labels = torch.FloatTensor(labels)
-            print(f'{num_invalid_rows} samples contained invalid values.')
-            print(f'{len(self.features)} samples loaded succesfully.')
+            logging.info(f'{num_invalid_rows} samples contained invalid values.')
+            logging.info(f'{len(self.features)} samples loaded succesfully.')
 
     def normalize(self):
         pass
@@ -109,11 +113,20 @@ class ZapfenDataset(Dataset):
         else:
             raise ValueError('Label: Inbalid value ' + label_str)
 
+    def _setup_logging(self):
+        f_id = datetime.now().strftime("%m.%d.%Y_%H:%M:%S_")
+        filename = os.path.join('logging', 'logfiles', f_id + 'log')
+        logging.basicConfig(filename=filename, filemode='w',
+                            format='%(name)s - %(levelname)s - %(message)s')
+        logging.basicConfig(level=logging.INFO)
+
     def plot_label_distribution(self):
         fig, ax = plt.subplots()
         ax.bar(self.label_distribution.keys(), self.label_distribution.values())
-        plt.savefig('label_distribution.png')
+        plt.savefig(os.path.join('plots', 'label_distribution.png'))
 
+    def plot_feature_distribution(self):
+        analyze(xdata=self.features[0])
 
 
 class ZapfenDataSubSet(ZapfenDataset):
