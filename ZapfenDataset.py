@@ -3,10 +3,11 @@ import os
 import csv
 import logging
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
+from sklearn import preprocessing
 from torch.utils.data import Dataset
 from datetime import datetime
-from sci_analysis import analyze
 
 
 class ZapfenDataset(Dataset):
@@ -47,9 +48,9 @@ class ZapfenDataset(Dataset):
                         row['Apo_B'], row['Apo_S'], row['Entf'], row['Verh_LABA'], row['Verh_LASA'],
                         row['Hakigkeit'], row['Stiel_L']]
                 # string to float
-                extracted_row = [float(e.replace(',', '.')) if type(e) is str else e for e in extracted_row ]
+                extracted_row = [float(e.replace(',', '.')) if type(e) is str else e for e in extracted_row]
 
-                # filter for NA values
+                # distinguish between invalid and valid rows
                 if row_is_valid:
                     features.append(extracted_row)
                     labels.append(self._map_label(row['Bart']))
@@ -59,18 +60,42 @@ class ZapfenDataset(Dataset):
                     labels_invalid.append(self._map_label(row['Bart']))
 
             # convert to pytorch datatype
-            s = np.array(features).shape
-            s_2 = np.array(features_invalid).shape
-            self.features = torch.FloatTensor(features)
-            self.labels = torch.FloatTensor(labels)
-            self.features_invalid = torch.FloatTensor(features_invalid)
-            self.labels_invalid = torch.FloatTensor(labels_invalid)
-            assert(len(self.features_invalid) == num_invalid_rows)
-            logging.info(f'{num_invalid_rows} samples contained invalid values.')
-            logging.info(f'{len(self.features)} samples loaded succesfully.')
+            self.features = (features)
+            self.labels = (labels)
+            self.features_invalid = (features_invalid)
+            self.labels_invalid = (labels_invalid)
+            logging.info(f'{num_invalid_rows / (num_invalid_rows + len(self.features)) * 100}'
+                         ' % samples contained invalid values.')
 
     def normalize(self):
-        pass
+        scaler = preprocessing.MinMaxScaler()
+        for i in range(len(self.features)):
+            self.features[i] = scaler.fit_transform(self.features[i])
+
+    def fix_invalid_values(self):
+        """ Replaces invalid values with the respective feature mean.
+        """
+        # get means
+        means = np.empty((self.features.shape[1]))
+        for i in range(self.features.shape[1]):
+            means[i] = np.mean(self.features[:, i])
+        # iterate over invalid rows
+        for row_f, row_l in zip(self.features_invalid, self.labels_invalid):
+            missing_indexes = np.where(row_f == -1.0)
+            logging.info(f'Replacing {len(missing_indexes[0])} features with mean.')
+            if len(missing_indexes[0]) == len(row_f) or -1.0 in row_l:
+                # ignore empty rows and rows with unknown label
+                logging.info('Skipping row.')
+                continue
+            # replace missing value with mean
+            for idx in missing_indexes[0]:
+                row_f[idx] = means[idx]
+            # add fixed row to features
+            np.append(self.features, row_f)
+            np.append(self.labels, row_l)
+        # empty invalid rows attribute
+        self.features_invalid = None
+        self.labels_invalid = None
 
     def get_train_and_test_set(self, split_percentage):
         split_idx = round(len(self) * split_percentage)
@@ -127,16 +152,26 @@ class ZapfenDataset(Dataset):
         f_id = datetime.now().strftime("%m.%d.%Y_%H:%M:%S_")
         filename = os.path.join('logging', 'logfiles', f_id + 'log')
         logging.basicConfig(filename=filename, filemode='w',
-                            format='%(name)s - %(levelname)s - %(message)s')
-        logging.basicConfig(level=logging.INFO)
+                            format='%(name)s - %(levelname)s - %(message)s',
+                            level=logging.DEBUG)
 
-    def plot_label_distribution(self):
-        fig, ax = plt.subplots()
+    def plot_label_distribution(self, fname='label_distribution'):
+        _, ax = plt.subplots()
         ax.bar(self.label_distribution.keys(), self.label_distribution.values())
-        plt.savefig(os.path.join('plots', 'label_distribution.png'))
+        plt.title('Distribution of target classes')
+        plt.savefig(os.path.join('plots', fname + '.png'))
 
-    def plot_feature_distribution(self):
-        analyze(xdata=self.features[0])
+    def plot_feature_distribution(self, fname='feature_distribution', title=''):
+        ax = sns.violinplot(data=self.features, scale='width')
+        ant = ['Z_Oeffnung', 'Z_laeng', 'Z_breit', 'DM_Spitz', 'DM_max',
+               'DM_mit', 'Woel_aufg', 'Woel_flach', 'Verh_LB', 'Asym', 'Apo_L',
+               'Apo_B', 'Apo_S', 'Entf', 'Verh_LABA', 'Verh_LASA', 'Hakigkeit', 'Stiel_L']
+        ax.set_xticks(np.arange(len(ant)), labels=ant)
+        ax.set_title(title)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                 rotation_mode="anchor")
+        plt.tight_layout()
+        plt.savefig(os.path.join('plots', fname + '.png'))
 
 
 class ZapfenDataSubSet(ZapfenDataset):
