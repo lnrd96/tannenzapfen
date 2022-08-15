@@ -9,11 +9,14 @@ from datetime import datetime
 
 def train(model):
 
+    model = model.double()
     dataset = ZapfenDataset('./zapfen.csv')
+    dataset.fix_invalid_values()
+    dataset.normalize()
     trainset, testset = dataset.get_train_and_test_set(0.8)
     trainloader = DataLoader(trainset, **DATALOADER_CONFIG)
     testloader = DataLoader(testset, **DATALOADER_CONFIG)
-    writer = SummaryWriter(log_dir=os.path.join('logging', 'tensorboard', datetime.now()))
+    writer = SummaryWriter(log_dir=os.path.join('logging', 'tensorboard', str(datetime.now())))
 
     loss_fn = TRAIN_CONFIG['loss_fn']
     batch_size = DATALOADER_CONFIG['batch_size']
@@ -31,11 +34,8 @@ def train(model):
             batch_prediction = model(batch_features)
 
             # calc batch accuracy
-            batch_acc = 0
-            for (prediction, labels) in zip(batch_prediction, batch_labels):
-                batch_acc += get_acc(prediction, labels)
-            num_correct += batch_acc
-            batch_acc /= batch_size * 100
+            batch_acc, num_correct_batch = get_batch_acc(batch_prediction, batch_labels)
+            num_correct += num_correct_batch
 
             loss = loss_fn(batch_prediction, batch_labels)
             writer.add_scalar('loss/train', loss.item(), num_processed)
@@ -58,11 +58,8 @@ def train(model):
             batch_prediction = model(batch_features)
 
             # calc batch accuracy
-            batch_acc = 0
-            for (prediction, labels) in zip(batch_prediction, batch_labels):
-                batch_acc += get_acc(prediction, labels)
-            num_correct += batch_acc
-            batch_acc /= batch_size
+            batch_acc, num_correct_batch = get_batch_acc(batch_prediction, batch_labels)
+            num_correct += num_correct_batch
 
             writer.add_scalar('accuracy/test', batch_acc, num_processed)
             num_processed += batch_size
@@ -90,3 +87,11 @@ def get_acc(prediction, label):
         return 1
     else:
         return 0
+
+
+def get_batch_acc(batch_prediction, batch_labels):
+    batch_acc, num_correct_batch = 0, 0
+    for (prediction, labels) in zip(batch_prediction, batch_labels):
+        num_correct_batch += get_acc(prediction, labels)
+    batch_acc = num_correct_batch / DATALOADER_CONFIG['batch_size'] * 100  # in %
+    return batch_acc, num_correct_batch
