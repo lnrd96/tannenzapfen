@@ -1,26 +1,37 @@
 import torch
 import os
-from config import DATALOADER_CONFIG, NUM_EPOCHS, TRAIN_CONFIG
+from config import DATALOADER_CONFIG, NUM_EPOCHS, TRAIN_CONFIG,\
+                   WEIGHT_LOSS_FN, NN_CONFIG
 from torch.utils.data import DataLoader
 from ZapfenDataset import ZapfenDataset
 from torch.utils.tensorboard import SummaryWriter
 from datetime import datetime
 
 
-def train(model):
+def train(model, context_string=''):
 
+    # load model
     model = model.double()
+    # load data
     dataset = ZapfenDataset('./zapfen.csv')
+    # fix data
     dataset.fix_invalid_values()
-    dataset.normalize()
+    dataset.scale()
+    # get datasets
     trainset, testset = dataset.get_train_and_test_set(0.8)
+    # load dataloaders
     trainloader = DataLoader(trainset, **DATALOADER_CONFIG)
     testloader = DataLoader(testset, **DATALOADER_CONFIG)
-    writer = SummaryWriter(log_dir=os.path.join('logging', 'tensorboard', str(datetime.now())))
+    # setup tensorboard
+    writer = SummaryWriter(log_dir=os.path.join('logging',
+                                                'tensorboard', str(datetime.now()) +
+                                                '_' + context_string + '_' + model.name))
 
     loss_fn = TRAIN_CONFIG['loss_fn']
     batch_size = DATALOADER_CONFIG['batch_size']
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    lr = TRAIN_CONFIG['lr']
+    momentum = TRAIN_CONFIG['momentum']
+    optimizer = TRAIN_CONFIG['optim_fn'](model.parameters(), lr=lr, momentum=momentum)
     num_processed, num_correct = 0, 0
     print(f'Number of model parameters {model.get_num_params()}')
     print(f'Number of samples {len(trainloader) * batch_size}')
@@ -65,8 +76,13 @@ def train(model):
             num_processed += batch_size
 
     # Validation Summary
-    writer.add_text('', f'{num_correct / num_processed * 100}% accuracy on testset.')
-    print(f'{num_correct / num_processed * 100}% accuracy on testset.')
+    acc = num_correct / num_processed * 100
+    hparams_dict = {'batch_size': batch_size, 'apply_weight': WEIGHT_LOSS_FN,
+                    'loss_fn': str(loss_fn), 'act_fn': NN_CONFIG['act_funcn'],
+                    'lr': lr, 'momentum': momentum, 'acc': acc}
+    writer.add_hparams(hparams_dict)
+    writer.add_text('', f'{acc}% accuracy on testset.')
+    print(f'{acc}% accuracy on testset.')
 
 
 def get_acc(prediction, label):
