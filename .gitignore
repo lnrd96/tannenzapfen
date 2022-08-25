@@ -4,3 +4,4 @@ __pycache__
 plots/*
 logging/logfiles/*
 logging/tensorboard/*
+.history/
