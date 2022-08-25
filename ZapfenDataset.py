@@ -69,7 +69,7 @@ class ZapfenDataset(Dataset):
             logging.info(f'{num_invalid_rows / (num_invalid_rows + len(self.features)) * 100}'
                          ' % samples contained invalid values.')
 
-    def normalize(self):
+    def scale(self):
         scaler = preprocessing.StandardScaler()
         self.features = scaler.fit_transform(self.features)
 
@@ -103,9 +103,8 @@ class ZapfenDataset(Dataset):
 
     def get_train_and_test_set(self, split_percentage):
         split_idx = round(len(self) * split_percentage)
-        trainset = self.features[0:split_idx], self.labels[0:split_idx]
-        testset = self.features[split_idx:len(self)], self.labels[split_idx:len(self)]
-        return ZapfenDataSubSet(trainset), ZapfenDataSubSet(testset)
+        return torch.utils.data.random_split(self, [split_idx, len(self) - split_idx],
+                                             generator=torch.Generator().manual_seed(42))
 
     def __len__(self):
         assert(len(self.features) == len(self.labels))
@@ -162,34 +161,22 @@ class ZapfenDataset(Dataset):
 
     def plot_label_distribution(self, fname='label_distribution'):
         _, ax = plt.subplots()
-        ax.bar(self.label_distribution.keys(), self.label_distribution.values())
+        stretch_fac = sum(self.label_distribution.values())
+        values = [v / stretch_fac for v in self.label_distribution.values()]
+        ax.bar(self.label_distribution.keys(), values)
         plt.title('Distribution of target classes')
         plt.savefig(os.path.join('plots', fname + '.png'))
         plt.clf()
 
     def plot_feature_distribution(self, fname='feature_distribution', title=''):
         ax = sns.violinplot(data=self.features, scale='width')
-        ant = ['Z_Oeffnung', 'Z_laeng', 'Z_breit', 'DM_Spitz', 'DM_max',
-               'DM_mit', 'Woel_aufg', 'Woel_flach', 'Verh_LB', 'Asym', 'Apo_L',
-               'Apo_B', 'Apo_S', 'Entf', 'Verh_LABA', 'Verh_LASA', 'Hakigkeit', 'Stiel_L']
-        ax.set_xticks(np.arange(len(ant)), labels=ant)
+        desc = ['Z_Oeffnung', 'Z_laeng', 'Z_breit', 'DM_Spitz', 'DM_max',
+                'DM_mit', 'Woel_aufg', 'Woel_flach', 'Verh_LB', 'Asym', 'Apo_L',
+                'Apo_B', 'Apo_S', 'Entf', 'Verh_LABA', 'Verh_LASA', 'Hakigkeit', 'Stiel_L']
+        ax.set_xticks(np.arange(len(desc)), labels=desc)
         ax.set_title(title)
         plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
                  rotation_mode="anchor")
         plt.tight_layout()
         plt.savefig(os.path.join('plots', fname + '.png'))
         plt.clf()
-
-
-class ZapfenDataSubSet(ZapfenDataset):
-    def __init__(self, data):
-        self.features = data[0]
-        self.labels = data[1]
-
-    def __len__(self):
-        assert(len(self.features) == len(self.labels))
-        return len(self.features)
-
-    def __getitem__(self, idx):
-        return torch.from_numpy(self.features[idx]), \
-               torch.from_numpy(self.labels[idx])
