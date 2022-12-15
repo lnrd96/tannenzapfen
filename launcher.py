@@ -5,11 +5,13 @@ from torch.nn import ReLU, LeakyReLU, CrossEntropyLoss
 from torch import tensor
 from config import TRAIN_CONFIG, NN_CONFIG, DATALOADER_CONFIG, WEIGHT_LOSS_FN
 import torch
+import sys
 
 
 def launch():
+    # TODO: train all with same weight initialisation
     global WEIGHT_LOSS_FN
-    for batch_size in [1, 2, 4, 8, 16]:
+    for batch_size in [4, 1, 2, 4, 8, 16]:
         for act_func in [ReLU(), LeakyReLU()]:
             for apply_weight in [True, False]:
                 for nn in [FFNN1(), FFNN2(), FFNN3(), FFNN4()]:
@@ -32,6 +34,7 @@ def launch():
                             context_str = str(batch_size) + '_' + str(loss_fn) + str(act_func) + weight
                             context_str = context_str.replace(')', '_').replace('(', '_')
                             train(nn, context_str)
+                            sys.exit()
     return
     ds = ZapfenDataset('./zapfen.csv')
     ds.plot_label_distribution()

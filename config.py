@@ -1,6 +1,6 @@
 import torch
 
-NUM_EPOCHS = 100
+NUM_EPOCHS = 300
 
 DATALOADER_CONFIG = {'batch_size': 2, 'shuffle': True}
 

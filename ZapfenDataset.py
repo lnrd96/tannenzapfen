@@ -164,7 +164,7 @@ class ZapfenDataset(Dataset):
         stretch_fac = sum(self.label_distribution.values())
         values = [v / stretch_fac for v in self.label_distribution.values()]
         ax.bar(self.label_distribution.keys(), values)
-        plt.title('Distribution of target classes')
+        plt.title('Distribution of target classes (PMF)')
         plt.savefig(os.path.join('plots', fname + '.png'))
         plt.clf()
 
@@ -180,3 +180,6 @@ class ZapfenDataset(Dataset):
         plt.tight_layout()
         plt.savefig(os.path.join('plots', fname + '.png'))
         plt.clf()
+
+    def fix_and_export_csv(self):
+        pass  # TODO

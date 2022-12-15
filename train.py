@@ -48,7 +48,12 @@ def train(model, context_string=''):
             batch_acc, num_correct_batch = get_batch_acc(batch_prediction, batch_labels)
             num_correct += num_correct_batch
 
+            # Compute the loss and its gradients
             loss = loss_fn(batch_prediction, batch_labels)
+            loss.backward()
+            
+            # Adjust learning weights
+            optimizer.step()
             writer.add_scalar('loss/train', loss.item(), num_processed)
             writer.add_scalar('accuracy/train', batch_acc, num_processed)
 
@@ -77,10 +82,11 @@ def train(model, context_string=''):
 
     # Validation Summary
     acc = num_correct / num_processed * 100
-    hparams_dict = {'batch_size': batch_size, 'apply_weight': WEIGHT_LOSS_FN,
-                    'loss_fn': str(loss_fn), 'act_fn': NN_CONFIG['act_funcn'],
-                    'lr': lr, 'momentum': momentum, 'acc': acc}
-    writer.add_hparams(hparams_dict)
+    hparams_dict = {'architecture': model.name, 'batch_size': batch_size,
+                    'apply_weight': WEIGHT_LOSS_FN, 'loss_fn': str(loss_fn),
+                    'act_fn': str(NN_CONFIG['act_func']),
+                    'lr': lr, 'momentum': momentum}
+    writer.add_hparams(hparams_dict, {'acc': acc})
     writer.add_text('', f'{acc}% accuracy on testset.')
     print(f'{acc}% accuracy on testset.')
 
