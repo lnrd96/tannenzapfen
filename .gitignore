@@ -1,7 +1,6 @@
 venv
 tox.ini
 __pycache__
-plots/*
 logging/logfiles/*
 logging/tensorboard/*
 .history/
