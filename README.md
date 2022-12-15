@@ -6,4 +6,4 @@ However, it was found out that there is no correlation.
 
 ![Feature Distribution Original](/tannenzapfen/plots/feature_distr_before_fixing.png?raw=true "Original Feature Distribution")
 
-![Feature Distribution Transformed](/tannenzapfen/plots/feature_distr_after_fixing.png?raw=true "Transformed Feature Distribution")
+![Feature Distribution Transformed](/tannenzapfen/plots/after_fixing_and_normalizing.png?raw=true "Transformed Feature Distribution")
